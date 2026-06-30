@@ -13,12 +13,13 @@ const PowerMgtConfig power_config = {
 };
 
 void R1NeoBoard::initiateShutdown(uint8_t reason) {
-  // Disable LoRa module power before shutdown
   digitalWrite(SX126X_POWER_EN, LOW);
-
-  // Signal IO controller that MCU is off, then release DCDC latch
   digitalWrite(PIN_SOFT_SHUTDOWN, LOW);
   digitalWrite(PIN_DCDC_EN_MCU_HOLD, LOW);
+
+  pinMode(SX126X_POWER_EN, OUTPUT);
+  pinMode(PIN_SOFT_SHUTDOWN, OUTPUT);
+  pinMode(PIN_DCDC_EN_MCU_HOLD, OUTPUT);
 
   if (reason == SHUTDOWN_REASON_LOW_VOLTAGE ||
       reason == SHUTDOWN_REASON_BOOT_PROTECT) {
@@ -27,43 +28,43 @@ void R1NeoBoard::initiateShutdown(uint8_t reason) {
 
   enterSystemOff(reason);
 }
+
 #endif // NRF52_POWER_MANAGEMENT
 
 void R1NeoBoard::begin() {
-  // R1 Neo peculiarity: tell DCDC converter to stay powered.
-  // Must be done as soon as practical during boot.
-
-  pinMode(PIN_DCDC_EN_MCU_HOLD, OUTPUT);
   digitalWrite(PIN_DCDC_EN_MCU_HOLD, HIGH);
-
-  // R1 Neo peculiarity: Tell I/O Controller device is on
-  // Enables passthrough of buttons and LEDs
-
-  pinMode(PIN_SOFT_SHUTDOWN, OUTPUT);
+  pinMode(PIN_DCDC_EN_MCU_HOLD, OUTPUT);
   digitalWrite(PIN_SOFT_SHUTDOWN, HIGH);
+  pinMode(PIN_SOFT_SHUTDOWN, OUTPUT);
+
+  // The user button is active-high and passed through from the I/O controller.
+  pinMode(PIN_USER_BTN, INPUT);
+
+  pinMode(LED_GREEN, OUTPUT);
+  digitalWrite(LED_GREEN, !LED_STATE_ON);
+  pinMode(LED_BLUE, OUTPUT);
+  digitalWrite(LED_BLUE, !LED_STATE_ON);
+
+  // Keep the radio off until the voltage check has passed.
+  digitalWrite(SX126X_POWER_EN, LOW);
+  pinMode(SX126X_POWER_EN, OUTPUT);
+
+  // Battery pins must be ready before checkBootVoltage() samples VBAT.
+  pinMode(PIN_BAT_CHG, INPUT_PULLUP);
+  pinMode(PIN_VBAT_READ, INPUT);
+
+#ifdef NRF52_POWER_MANAGEMENT
+  checkBootVoltage(&power_config);
+#endif
 
   NRF52BoardDCDC::begin();
-
-  // button is active high and passed through from I/O controller
-  pinMode(PIN_USER_BTN, INPUT);
 
   pinMode(PIN_BUZZER, OUTPUT);
   digitalWrite(PIN_BUZZER, LOW);
 
-  // battery pins
-  pinMode(PIN_BAT_CHG, INPUT);
-  pinMode(PIN_VBAT_READ, INPUT);
-
   Wire.setPins(PIN_WIRE_SDA, PIN_WIRE_SCL);
-
   Wire.begin();
 
-  pinMode(SX126X_POWER_EN, OUTPUT);
-#ifdef NRF52_POWER_MANAGEMENT
-  // Boot voltage protection check (may not return if voltage too low)
-  // We need to call this after we configure SX126X_POWER_EN as output but before we pull high
-  checkBootVoltage(&power_config);
-#endif
   digitalWrite(SX126X_POWER_EN, HIGH);
   delay(10);   // give sx1262 some time to power up
 }

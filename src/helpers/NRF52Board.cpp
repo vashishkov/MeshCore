@@ -22,6 +22,11 @@ void NRF52Board::begin() {
   startup_reason = BD_STARTUP_NORMAL;
 }
 
+bool NRF52Board::enterBootloader() {
+  enterUf2Dfu();  // writes the UF2 bootloader GPREGRET magic, then resets
+  return true;
+}
+
 #ifdef NRF52_POWER_MANAGEMENT
 #include "nrf.h"
 

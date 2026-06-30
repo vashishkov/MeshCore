@@ -19,6 +19,11 @@ static uint32_t _atoi(const char* sp) {
   return n;
 }
 
+static bool commandMatches(const char* command, const char* verb) {
+  size_t len = strlen(verb);
+  return memcmp(command, verb, len) == 0 && (command[len] == 0 || command[len] == ' ');
+}
+
 static bool isValidName(const char *n) {
   while (*n) {
     if (*n == '[' || *n == ']' || *n == '\\' || *n == ':' || *n == ',' || *n == '?' || *n == '*') return false;
@@ -215,6 +220,11 @@ uint8_t CommonCLI::buildAdvertData(uint8_t node_type, uint8_t* app_data) {
 void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* reply) {
     if (memcmp(command, "poweroff", 8) == 0 || memcmp(command, "shutdown", 8) == 0) {
       _board->powerOff();  // doesn't return
+    } else if (commandMatches(command, "dfu") || commandMatches(command, "bootloader") ||
+               commandMatches(command, "enter dfu") || commandMatches(command, "reboot dfu")) {
+      if (!_board->enterBootloader()) {
+        strcpy(reply, "ERROR: unsupported");
+      }
     } else if (memcmp(command, "reboot", 6) == 0) {
       _board->reboot();  // doesn't return
     } else if (memcmp(command, "clkreboot", 9) == 0) {

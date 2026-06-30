@@ -740,6 +740,13 @@ void EnvironmentSensorManager::initBasicGPS() {
   Serial1.begin(9600);
   #endif
 
+#ifdef ENV_GPS_KNOWN_PRESENT
+  gps_detected = true;
+  gps_active = false;
+  _location->stop();
+  return;
+#endif
+
   // Try to detect if GPS is physically connected to determine if we should expose the setting
   _location->begin();
   _location->reset();

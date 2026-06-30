@@ -15,13 +15,13 @@ void genericBuzzer::begin() {
     digitalWrite(PIN_BUZZER, LOW); // need to pull low by default to avoid extreme power draw
 }
 
-void genericBuzzer::play(const char *melody) {
+void genericBuzzer::play(const char *melody, bool ignoreQuiet) {
     if (isPlaying())   // interrupt existing
     {
         rtttl::stop();
     }
 
-    if (_is_quiet) return;
+    if (_is_quiet && !ignoreQuiet) return;
 
     rtttl::begin(PIN_BUZZER,melody);
 //    Serial.print("DBG: Playing melody - isQuiet: ");

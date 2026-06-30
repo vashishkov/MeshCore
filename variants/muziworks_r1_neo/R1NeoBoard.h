@@ -4,7 +4,6 @@
 #include <Arduino.h>
 #include <helpers/NRF52Board.h>
 #include "NullDisplayDriver.h"
-#include "MomentaryButton.h"
 
 #define DISPLAY_CLASS NullDisplayDriver
 
@@ -27,24 +26,15 @@ public:
 #if defined(P_LORA_TX_LED)
   void onBeforeTransmit() override {
     digitalWrite(P_LORA_TX_LED, HIGH);   // turn TX LED on
-    #if defined(LED_BLUE)
-       // turn off that annoying blue LED before transmitting
-       digitalWrite(LED_BLUE, LOW);
-    #endif
   }
   void onAfterTransmit() override {
     digitalWrite(P_LORA_TX_LED, LOW);   // turn TX LED off
-    #if defined(LED_BLUE)
-       // do it after transmitting too, just in case
-       digitalWrite(LED_BLUE, LOW);
-    #endif
   }
 #endif
 
   #define BATTERY_SAMPLES 8
 
   uint16_t getBattMilliVolts() override {
-    MESH_DEBUG_PRINTLN("R1Neo: Sampling battery");
     analogReadResolution(12);
 
     uint32_t raw = 0;

@@ -15,9 +15,19 @@
 #define BLE_CONN_SUP_TIMEOUT       200    // 2000ms
 
 // Advertising parameters
+#ifndef BLE_ADV_INTERVAL_MIN
 #define BLE_ADV_INTERVAL_MIN       32     // 20ms (units: 0.625ms)
+#endif
+#ifndef BLE_ADV_INTERVAL_MAX
 #define BLE_ADV_INTERVAL_MAX       244    // 152.5ms (units: 0.625ms)
+#endif
+#ifndef BLE_ADV_FAST_TIMEOUT
 #define BLE_ADV_FAST_TIMEOUT       30     // seconds
+#endif
+
+#ifndef BLE_AUTO_CONN_LED
+#define BLE_AUTO_CONN_LED          1
+#endif
 
 // RX drain buffer size for overflow protection
 #define BLE_RX_DRAIN_BUF_SIZE      32
@@ -129,8 +139,9 @@ void SerialBLEInterface::begin(const char* prefix, char* name, uint32_t pin_code
   char charpin[20];
   snprintf(charpin, sizeof(charpin), "%lu", (unsigned long)pin_code);
   
-  // If we want to control BLE LED ourselves, uncomment this:
-  // Bluefruit.autoConnLed(false);
+#if !BLE_AUTO_CONN_LED
+  Bluefruit.autoConnLed(false);
+#endif
   Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
   Bluefruit.begin();
  

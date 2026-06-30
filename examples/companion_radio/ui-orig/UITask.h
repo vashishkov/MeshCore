@@ -14,6 +14,10 @@
 
 #include "Button.h"
 
+#if defined(R1Neo)
+  #include <R1NeoUiFeedback.h>
+#endif
+
 class UITask : public AbstractUITask {
   DisplayDriver* _display;
   SensorManager* _sensors;
@@ -30,6 +34,10 @@ class UITask : public AbstractUITask {
   bool _need_refresh = true;
   bool _displayWasOn = false;  // Track display state before button press
   unsigned long ui_started_at;
+
+#if defined(R1Neo)
+  R1NeoUiFeedback _r1NeoFeedback;
+#endif
 
   // Button handlers
 #ifdef PIN_USER_BTN
@@ -49,9 +57,10 @@ class UITask : public AbstractUITask {
   void handleButtonDoublePress();
   void handleButtonTriplePress();
   void handleButtonQuadruplePress();
+#if !defined(R1Neo)
   void handleButtonLongPress();
+#endif
 
- 
 public:
 
   UITask(mesh::MainBoard* board, BaseSerialInterface* serial) : AbstractUITask(board, serial), _display(NULL), _sensors(NULL) {

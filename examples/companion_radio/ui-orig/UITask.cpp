@@ -70,7 +70,9 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   _userButton->onDoublePress([this]() { handleButtonDoublePress(); });
   _userButton->onTriplePress([this]() { handleButtonTriplePress(); });
   _userButton->onQuadruplePress([this]() { handleButtonQuadruplePress(); });
+#if !defined(R1Neo)
   _userButton->onLongPress([this]() { handleButtonLongPress(); });
+#endif
   _userButton->onAnyPress([this]() { handleButtonAnyPress(); });
 #endif
 
@@ -119,6 +121,9 @@ void UITask::msgRead(int msgcount) {
   if (msgcount == 0) {
     clearMsgPreview();
   }
+#if defined(R1Neo)
+  _r1NeoFeedback.notifyUnreadChanged();
+#endif
 }
 
 void UITask::clearMsgPreview() {
@@ -129,6 +134,9 @@ void UITask::clearMsgPreview() {
 
 void UITask::newMsg(uint8_t path_len, const char* from_name, const char* text, int msgcount) {
   _msgcount = msgcount;
+#if defined(R1Neo)
+  _r1NeoFeedback.notifyUnreadChanged();
+#endif
 
   if (path_len == 0xFF) {
     sprintf(_origin, "(F) %s", from_name);
@@ -299,7 +307,7 @@ void UITask::shutdown(bool restart){
   */
   buzzer.shutdown();
   uint32_t buzzer_timer = millis(); // fail-safe shutdown
-  while (buzzer.isPlaying() && (millis() - 2500) < buzzer_timer)
+  while (buzzer.isPlaying() && (millis() - buzzer_timer) < 2500)
     buzzer.loop();
 
   #endif // PIN_BUZZER
@@ -324,6 +332,18 @@ void UITask::loop() {
     }
   #endif
   userLedHandler();
+#if defined(R1Neo)
+  R1NeoUiFeedback::UpdateResult feedback = _r1NeoFeedback.update(_connected, _msgcount);
+  #ifdef PIN_BUZZER
+    if (feedback.leadUpTone != nullptr) {
+      buzzer.play(feedback.leadUpTone, true);
+    }
+  #endif
+  if (feedback.shouldShutdown) {
+    shutdown();
+    return;
+  }
+#endif
 
 #ifdef PIN_BUZZER
   if (buzzer.isPlaying())  buzzer.loop();
@@ -372,6 +392,9 @@ void UITask::handleButtonAnyPress() {
 
 void UITask::handleButtonShortPress() {
   MESH_DEBUG_PRINTLN("UITask: short press triggered");
+#if defined(R1Neo)
+  _r1NeoFeedback.clearUnreadHeartbeat();
+#endif
   if (_display != NULL) {
     // Only clear message preview if display was already on before button press
     if (_displayWasOn) {
@@ -391,6 +414,9 @@ void UITask::handleButtonShortPress() {
 
 void UITask::handleButtonDoublePress() {
   MESH_DEBUG_PRINTLN("UITask: double press triggered, sending advert");
+#if defined(R1Neo)
+  _r1NeoFeedback.clearUnreadHeartbeat();
+#endif
   // ADVERT
   #ifdef PIN_BUZZER
       notify(UIEventType::ack);
@@ -409,22 +435,58 @@ void UITask::handleButtonTriplePress() {
   MESH_DEBUG_PRINTLN("UITask: triple press triggered");
   // Toggle buzzer quiet mode
   #ifdef PIN_BUZZER
-    if (buzzer.isQuiet()) {
+    bool enable_buzzer = buzzer.isQuiet();
+    if (enable_buzzer) {
       buzzer.quiet(false);
+#if defined(R1Neo)
+      buzzer.play(R1NeoUiFeedback::buzzerEnableMelody());
+#else
       notify(UIEventType::ack);
+#endif
       sprintf(_alert, "Buzzer: ON");
     } else {
+#if defined(R1Neo)
+      buzzer.play(R1NeoUiFeedback::buzzerDisableMelody());
+#endif
       buzzer.quiet(true);
       sprintf(_alert, "Buzzer: OFF");
     }
     _node_prefs->buzzer_quiet = buzzer.isQuiet();
     the_mesh.savePrefs();
+#if defined(R1Neo)
+    _r1NeoFeedback.startActionSequence(enable_buzzer ?
+        R1NeoUiFeedback::ActionSequence::BuzzerEnabled :
+        R1NeoUiFeedback::ActionSequence::BuzzerDisabled);
+#endif
     _need_refresh = true;
   #endif
 }
 
 void UITask::handleButtonQuadruplePress() {
   MESH_DEBUG_PRINTLN("UITask: quad press triggered");
+#if defined(R1Neo)
+  if (_sensors != NULL) {
+    bool enable_gps = _node_prefs->gps_enabled == 0;
+    if (_sensors->setSettingValue("gps", enable_gps ? "1" : "0")) {
+      _node_prefs->gps_enabled = enable_gps ? 1 : 0;
+      the_mesh.savePrefs();
+      _r1NeoFeedback.startActionSequence(enable_gps ?
+          R1NeoUiFeedback::ActionSequence::GpsEnabled :
+          R1NeoUiFeedback::ActionSequence::GpsDisabled);
+#ifdef PIN_BUZZER
+      buzzer.play(enable_gps ? R1NeoUiFeedback::gpsEnableMelody() : R1NeoUiFeedback::gpsDisableMelody());
+#endif
+      sprintf(_alert, enable_gps ? "GPS: Enabled" : "GPS: Disabled");
+    } else {
+      sprintf(_alert, "GPS: Unavailable");
+#ifdef PIN_BUZZER
+      notify(UIEventType::ack);
+#endif
+    }
+  } else {
+    sprintf(_alert, "GPS: Unavailable");
+  }
+#else
   if (_sensors != NULL) {
     // toggle GPS onn/off
     int num = _sensors->getNumSettings();
@@ -443,9 +505,11 @@ void UITask::handleButtonQuadruplePress() {
       }
     }
   }
+#endif
   _need_refresh = true;
 }
 
+#if !defined(R1Neo)
 void UITask::handleButtonLongPress() {
   MESH_DEBUG_PRINTLN("UITask: long press triggered");
   if (millis() - ui_started_at < 8000) {   // long press in first 8 seconds since startup -> CLI/rescue
@@ -454,3 +518,4 @@ void UITask::handleButtonLongPress() {
     shutdown();
   }
 }
+#endif
